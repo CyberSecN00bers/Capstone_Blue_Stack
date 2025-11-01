@@ -1,0 +1,7 @@
+mode: immediate
+commentMessage: 'Branch ${branchName} created for issue: ${issue.title}'
+gitSafeReplacementChar: '-'
+autoCloseIssue: true
+autoLinkIssue: true
+autoDeleteBranch: true
+branchName: tiny

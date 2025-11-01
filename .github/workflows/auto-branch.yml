@@ -1,0 +1,16 @@
+name: Auto Branch
+on:
+  issues:
+    types: [ opened, assigned ]
+  pull_request:
+    types: [ opened, closed ]
+jobs:
+  create-issue-branch:
+    name: "create issue branch"
+    runs-on: ubuntu-latest
+    steps:
+      - name: create the issue branch
+        uses: robvanderleek/create-issue-branch@main
+        id: create-issue-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}

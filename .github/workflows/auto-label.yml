@@ -1,0 +1,31 @@
+name: "Auto-label documentation for PRs & Issues"
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+  issues:
+    types: [opened, reopened, edited]
+
+
+# grant explicit permissions the action needs to manage labels
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for local config)
+        uses: actions/checkout@v4
+
+      - name: Run srvaroa/labeler
+        uses: srvaroa/labeler@v1.13.0
+        with:
+          config_path: .github/labeler.yml
+          use_local_config: true
+          fail_on_error: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
