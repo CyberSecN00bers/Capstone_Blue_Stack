@@ -3,12 +3,10 @@ node.name: wazuh2.indexer
 cluster.initial_master_nodes:
         - wazuh1.indexer
         - wazuh2.indexer
-        # - wazuh3.indexer
 cluster.name: "wazuh-cluster"
 discovery.seed_hosts:
         - wazuh1.indexer
         - wazuh2.indexer
-        # - wazuh3.indexer
 node.max_local_storage_nodes: "3"
 path.data: /var/lib/wazuh-indexer
 path.logs: /var/log/wazuh-indexer
@@ -28,7 +26,6 @@ plugins.security.enable_snapshot_restore_privilege: true
 plugins.security.nodes_dn:
 - "CN=wazuh1.indexer,OU=Wazuh,O=Wazuh,L=California,C=US"
 - "CN=wazuh2.indexer,OU=Wazuh,O=Wazuh,L=California,C=US"
-# - "CN=wazuh3.indexer,OU=Wazuh,O=Wazuh,L=California,C=US"
 - "CN=filebeat,OU=Wazuh,O=Wazuh,L=California,C=US"
 plugins.security.restapi.roles_enabled:
 - "all_access"
