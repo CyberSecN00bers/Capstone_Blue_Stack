@@ -1,0 +1,33 @@
+name: wait issues
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  wait-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    env:
+      PROJECT_URL: https://github.com/orgs/CyberSecN00bers/projects/2
+      FIELD_NAME: Status
+      FIELD_VALUE: "Blocked / Waiting"
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
+
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      contains(github.event.comment.body, '/wait')
+
+    steps:
+      - name: Update issue status to "Blocked / Waiting"
+        uses: nipe0324/update-project-v2-item-field@v2.0.2
+        with:
+          project-url: ${{ env.PROJECT_URL }}
+          field-name: ${{ env.FIELD_NAME }}
+          field-value: ${{ env.FIELD_VALUE }}
+          github-token: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}

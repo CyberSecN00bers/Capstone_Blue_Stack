@@ -1,0 +1,16 @@
+name: Update Issues status to "In Progress"
+on:
+  issues:
+    types: [assigned]
+jobs:
+  update-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Update status to "In Progress"
+        uses: nipe0324/update-project-v2-item-field@v2.0.2
+        with:
+          project-url: https://github.com/orgs/CyberSecN00bers/projects/2
+          github-token: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
+          field-name: "Status"
+          field-value: "In Progress"

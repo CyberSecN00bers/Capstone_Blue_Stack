@@ -1,0 +1,11 @@
+version: 1
+issues: True
+
+labels:
+  - label: "SIEM"
+    type: "pull_request"
+    title: ".*"
+
+  - label: "SIEM"
+    type: "issue"
+    title: ".*"
