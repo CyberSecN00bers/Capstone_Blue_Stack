@@ -1,0 +1,165 @@
+name: Move linked issue to In Preview on review requested
+
+on:
+  pull_request:
+    types: [review_requested]
+
+jobs:
+  move-issue:
+    runs-on: ubuntu-latest
+
+    # Cấu hình project / field — sửa các giá trị này cho phù hợp
+    env:
+      # Thay bằng org hoặc username sở hữu project
+      PROJECT_OWNER: "CyberSecN00bers"
+      # Số project V2 trong URL: /orgs/<owner>/projects/<PROJECT_NUMBER>
+      PROJECT_NUMBER: "2"
+      # Tên field (thường là "Status" hoặc tương tự)
+      STATUS_FIELD_NAME: "Status"
+      # Tên option (tên cột) bạn muốn chuyển tới
+      STATUS_OPTION_NAME: "In Review"
+      # Nếu tổ chức/repo hạn chế GITHUB_TOKEN, lưu PAT (fine-grained with project scope)
+      # vào secret tên PROJECT_PAT và workflow sẽ dùng PAT nếu secret này không rỗng.
+      # Nếu bạn không cần PAT, bỏ qua hoặc để trống secret PROJECT_PAT.
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Resolve linked issue number from PR
+        id: find_issue
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=${PR_NUMBER}
+          REPO="${REPOSITORY}"
+          echo "PR_NUMBER=$PR_NUMBER"
+          # 1) Try closingIssuesReferences (explicitly linked as "closes #..")
+          ISSUE_NUMBER=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json closingIssuesReferences -q ".closingIssuesReferences[0].number" 2>/dev/null || true)
+
+          # 2) Fallback: try parse PR body for "#123" style reference (first occurrence)
+          if [ -z "$ISSUE_NUMBER" ] || [ "$ISSUE_NUMBER" = "null" ]; then
+            PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body -q ".body" 2>/dev/null || true)
+            ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oE '#[0-9]+' | head -n1 | tr -d '#' || true)
+          fi
+
+          if [ -z "$ISSUE_NUMBER" ] || [ "$ISSUE_NUMBER" = "null" ]; then
+            echo "No linked issue found for PR #$PR_NUMBER"
+            echo "::set-output name=found::false"
+            exit 0
+          fi
+
+          echo "Found linked issue #$ISSUE_NUMBER"
+          echo "::set-output name=found::true"
+          echo "::set-output name=issue_number::$ISSUE_NUMBER"
+
+      - name: Move issue to 'In Preview' in Project V2 (using gh)
+        if: steps.find_issue.outputs.found == 'true'
+        env:
+          PROJECT_OWNER: ${{ env.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ env.PROJECT_NUMBER }}
+          STATUS_FIELD_NAME: ${{ env.STATUS_FIELD_NAME }}
+          STATUS_OPTION_NAME: ${{ env.STATUS_OPTION_NAME }}
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.find_issue.outputs.issue_number }}
+        run: |
+          set -euo pipefail
+
+          OWNER="$PROJECT_OWNER"
+          PNUM="$PROJECT_NUMBER"
+          FIELD_NAME="$STATUS_FIELD_NAME"
+          OPTION_NAME="$STATUS_OPTION_NAME"
+          REPO="$REPOSITORY"
+          ISSUE_NUMBER="$ISSUE_NUMBER"
+
+          echo "Project owner: $OWNER, project number: $PNUM"
+          echo "Target field: $FIELD_NAME -> option: $OPTION_NAME"
+          echo "Repository: $REPO"
+          echo "Issue: #$ISSUE_NUMBER"
+
+          # 1) Get project id (node id) — not strictly required for gh item-edit but useful
+          PROJECT_ID=$(gh project view "$PNUM" --owner "$OWNER" --format json --jq '.id' 2>/dev/null || true)
+          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
+            echo "Cannot find project ID for $OWNER project $PNUM"
+            exit 1
+          fi
+          echo "PROJECT_ID=$PROJECT_ID"
+
+          # 2) Get fields JSON (includes options)
+          FIELDS_JSON=$(gh project field-list "$PNUM" --owner "$OWNER" --format json 2>/dev/null || true)
+          if [ -z "$FIELDS_JSON" ]; then
+            echo "Failed to fetch fields for project $PNUM"
+            echo "Raw output:"
+            gh project field-list "$PNUM" --owner "$OWNER" --format json || true
+            exit 1
+          fi
+
+          # 3) Extract field id and option id
+          FIELD_ID=$(echo "$FIELDS_JSON" | jq -r --arg NAME "$FIELD_NAME" '.fields[] | select(.name==$NAME) | .id' || true)
+          OPTION_ID=$(echo "$FIELDS_JSON" | jq -r --arg NAME "$FIELD_NAME" --arg ONAME "$OPTION_NAME" '.fields[] | select(.name==$NAME) | .options[] | select(.name==$ONAME) | .id' || true)
+
+          if [ -z "$FIELD_ID" ] || [ "$FIELD_ID" = "null" ]; then
+            echo "Could not find single-select field named '$FIELD_NAME' in project. Dumping fields for debug:"
+            echo "$FIELDS_JSON" | jq .
+            exit 1
+          fi
+          if [ -z "$OPTION_ID" ] || [ "$OPTION_ID" = "null" ]; then
+            echo "Could not find option '$OPTION_NAME' under field '$FIELD_NAME'. Dumping fields for debug:"
+            echo "$FIELDS_JSON" | jq .
+            exit 1
+          fi
+
+          echo "FIELD_ID=$FIELD_ID"
+          echo "OPTION_ID=$OPTION_ID"
+
+          # 4) Find if issue is already an item in the project
+          # Build issue URL for matching contentUrl (owner/repo must match)
+          OWNER_PART=$(echo "$REPO" | cut -d'/' -f1)
+          REPO_NAME=$(echo "$REPO" | cut -d'/' -f2)
+          ISSUE_URL="https://github.com/$OWNER_PART/$REPO_NAME/issues/$ISSUE_NUMBER"
+          echo "Looking for item with contentUrl = $ISSUE_URL"
+
+          ITEM_ID=$(gh project item-list "$PNUM" --owner "$OWNER" --format json 2>/dev/null | jq -r --arg U "$ISSUE_URL" '.items[] | select(.contentUrl==$U) | .id' || true)
+
+          if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" = "null" ]; then
+            echo "Issue not yet in project -> adding"
+            ITEM_ID=$(gh project item-add "$PNUM" --owner "$OWNER" --url "$ISSUE_URL" --format json | jq -r '.id' || true)
+            if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" = "null" ]; then
+              echo "Failed to add issue to project. Exiting."
+              exit 1
+            fi
+            echo "Added item ID: $ITEM_ID"
+          else
+            echo "Found existing item ID: $ITEM_ID"
+          fi
+
+          # 5) Edit item: set single-select option (moves card to the corresponding column)
+          echo "Updating item to set field $FIELD_ID -> option $OPTION_ID"
+          gh project item-edit \
+            --project-id "$PROJECT_ID" \
+            --id "$ITEM_ID" \
+            --field-id "$FIELD_ID" \
+            --single-select-option-id "$OPTION_ID" \
+            --format json
+
+          echo "Done: issue #$ISSUE_NUMBER moved to '$OPTION_NAME' in project $PNUM"
+
+  update-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Update status to "In Review"
+        uses: nipe0324/update-project-v2-item-field@v2.0.2
+        with:
+          project-url: https://github.com/orgs/CyberSecN00bers/projects/2
+          github-token: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
+          field-name: "Status"
+          field-value: "In Review"

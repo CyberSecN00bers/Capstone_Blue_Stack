@@ -1,0 +1,42 @@
+name: Tự động thêm vào Org Project V2 và đặt "In progress"
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  add-to-project-and-set-status:
+    # ⚠️ CẦN THAY ĐỔI ⚠️
+    env:
+      # Thay thế bằng Project URL Cấp Tổ chức của bạn
+      PROJECT_URL: https://github.com/orgs/CyberSecN00bers/projects/2
+      FIELD_NAME: Status                                             # Tên trường trạng thái (ví dụ: 'Status')
+      FIELD_VALUE: Ready                                      # Giá trị cột (ví dụ: 'Ready')
+      
+    # Đã xóa dòng comment `#` khỏi đây
+    if: |
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request == null && contains(github.event.comment.body, '/start'))
+      
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      
+    steps:
+      # --- Bước 1: Thêm Issue vào Project ---
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          # You can target a project in a different organization
+          # to the issue
+          project-url: https://github.com/orgs/CyberSecN00bers/projects/2
+          github-token: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
+
+      # --- Bước 2: Đặt trạng thái/cột thành "In progress" ---
+      - name: Đặt trạng thái thành 'In progress'
+        uses: nipe0324/update-project-v2-item-field@v2.0.2
+        with:
+          project-url: ${{ env.PROJECT_URL }}
+          field-name: ${{ env.FIELD_NAME }}
+          field-value: ${{ env.FIELD_VALUE }}
+          github-token: ${{ secrets.GH_TOKEN_FOR_GRADUATION }}
