@@ -2,10 +2,10 @@ version: 1
 issues: True
 
 labels:
-  - label: "SIEM"
+  - label: "SIEM_Stack"
     type: "pull_request"
     title: ".*"
 
-  - label: "SIEM"
+  - label: "SIEM_Stack"
     type: "issue"
     title: ".*"
