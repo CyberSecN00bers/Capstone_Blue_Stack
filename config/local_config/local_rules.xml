@@ -1,14 +1,5 @@
-<!-- Local rules -->
-
-<!-- Modify it at your will. -->
-<!-- Copyright (C) 2015, Wazuh Inc. -->
-
-<!-- Example -->
 <group name="local,syslog,sshd,">
 
-  <!--
-  Dec 10 01:02:02 host sshd[1234]: Failed none for root from 1.1.1.1 port 1066 ssh2
-  -->
   <rule id="100001" level="5">
     <if_sid>5716</if_sid>
     <srcip>1.1.1.1</srcip>
@@ -21,9 +12,7 @@
 
   <rule id="100510" level="6">
     <decoded_as>sca</decoded_as>
-
     <field name="data.sca.check.result">failed</field>
-
     <description>SCA FAILED: CIS Amazon Linux 2023 misconfiguration detected</description>
     <group>sca,compliance,critical,</group>
   </rule>
@@ -31,7 +20,6 @@
   <rule id="100511" level="7">
     <decoded_as>sca</decoded_as>
     <field name="data.sca.check.result">not applicable</field>
-
     <description>SCA: CIS check not applicable (verify manually)</description>
     <group>sca,compliance,info,</group>
   </rule>
@@ -60,13 +48,10 @@
 </group>
 <group name="local,apache,web,">
 
-  <rule id="100610" level="3">
+  <rule id="100610" level="0">
     <decoded_as>web-accesslog</decoded_as>
-
     <field name="data.id">302</field>
-
     <field name="data.url">/</field>
-
     <description>Apache: HTTP 302 on root path</description>
     <group>apache,web,accesslog,</group>
   </rule>
@@ -74,22 +59,28 @@
 </group>
 <group name="local,apache,accesslog,">
 
-  <rule id="100700" level="3">
-
+  <rule id="100700" level="0">
     <decoded_as>web-accesslog</decoded_as>
-
     <field name="location">/var/log/app/apache/access.log</field>
-
     <description>Apache access log event from wazuh-agent-dmz</description>
     <group>web,apache,accesslog,</group>
   </rule>
 
 </group>
-<group name="local,modsecurity,web,">
-  <rule id="100801" level="9">
-    <decoded_as>modsecurity-audit</decoded_as>
-    <field name="modsec_id">949110</field>
-    <description>ModSecurity detected SQL Injection</description>
-    <group>waf,modsecurity,attack,sqli,</group>
+<group name="local,modsecurity,attack,">
+
+  <rule id="100800" level="10">
+    <if_decoded_as>json</if_decoded_as>
+    <field name="data.transaction.producer.modsecurity">\.+</field>
+    <description>ModSecurity Alert: $(data.transaction.messages.message) (Rule: $(data.transaction.messages.details.ruleId)) from $(data.transaction.client_ip)</description>
+    <group>web,modsecurity,attack,</group>
   </rule>
+
+  <rule id="100801" level="12">
+    <if_sid>100800</if_sid>
+    <field name="data.transaction.messages.message" type="pcre2">(?i)SQL Injection</field>
+    <description>ModSecurity SQL Injection: $(data.transaction.messages.message) (Rule: $(data.transaction.messages.details.ruleId)) from $(data.transaction.client_ip)</description>
+    <group>web,modsecurity,attack,sqli,pci_dss_6.5.2,gdpr_IV_35.7.d,</group>
+  </rule>
+
 </group>
