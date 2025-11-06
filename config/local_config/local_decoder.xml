@@ -24,9 +24,3 @@
 <decoder name="local_decoder_example">
     <program_name>local_decoder_example</program_name>
 </decoder>
-
-<decoder name="modsecurity-audit">
-  <prematch>ModSecurity:</prematch>
-  <regex>\[id\s+&quot;(?P&lt;modsec_audit_id&gt;\d+)&quot;\].*\[msg\s+&quot;(?P&lt;modsec_audit_msg&gt;[^&quot;]+)&quot;\]</regex>
-  <order>modsec_audit_id, modsec_audit_msg</order>
-</decoder>
