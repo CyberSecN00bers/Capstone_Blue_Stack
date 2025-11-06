@@ -21,7 +21,7 @@ __pycache__/
 
 # Local env / secrets (ignore local env files; keep templates)
 .env
-/web-services/.env
+
 # ignore other local env variants but keep templates and universal
 *.env.local
 *.env.*.local
