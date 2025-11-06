@@ -17,13 +17,23 @@
   </rule>
 
 </group>
+<group name="local,sca,compliance,">
 
-<group name="local,modsecurity,web,">
-  <rule id="100801" level="9">
-    <decoded_as>modsecurity-audit</decoded_as>
-    <field name="modsec_id">949110</field>
-    <description>ModSecurity detected SQL Injection</description>
-    <group>waf,modsecurity,attack,sqli,</group>
+  <rule id="100510" level="6">
+    <decoded_as>sca</decoded_as>
+
+    <field name="data.sca.check.result">failed</field>
+
+    <description>SCA FAILED: CIS Amazon Linux 2023 misconfiguration detected</description>
+    <group>sca,compliance,critical,</group>
+  </rule>
+
+  <rule id="100511" level="7">
+    <decoded_as>sca</decoded_as>
+    <field name="data.sca.check.result">not applicable</field>
+
+    <description>SCA: CIS check not applicable (verify manually)</description>
+    <group>sca,compliance,info,</group>
   </rule>
 </group>
 
@@ -38,12 +48,21 @@
 
 </group>
 
+<group name="local,systemd,journald,">
+
+  <rule id="100601" level="9">
+    <decoded_as>systemd</decoded_as>
+    <match>Postfix Mail Transport Agent</match>
+    <description>Postfix Mail Transport Agent reloaded via systemd</description>
+    <group>mail,postfix,systemd,</group>
+  </rule>
+
+</group>
 <group name="local,apache,web,">
 
   <rule id="100610" level="3">
     <decoded_as>web-accesslog</decoded_as>
 
-    <!-- status code 302 -->
     <field name="data.id">302</field>
 
     <field name="data.url">/</field>
@@ -65,4 +84,12 @@
     <group>web,apache,accesslog,</group>
   </rule>
 
+</group>
+<group name="local,modsecurity,web,">
+  <rule id="100801" level="9">
+    <decoded_as>modsecurity-audit</decoded_as>
+    <field name="modsec_id">949110</field>
+    <description>ModSecurity detected SQL Injection</description>
+    <group>waf,modsecurity,attack,sqli,</group>
+  </rule>
 </group>
