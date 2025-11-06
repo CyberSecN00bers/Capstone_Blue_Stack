@@ -1,86 +1,108 @@
-<group name="local,syslog,sshd,">
+<!-- 
+  Wazuh Custom Rules for ModSecurity/WAF SQL Injection Detection
+  File location: /var/ossec/etc/rules/local_rules.xml
+  
+  Note: transaction.messages is a string contain JSON array, not parsed object
+-->
 
-  <rule id="100001" level="5">
-    <if_sid>5716</if_sid>
-    <srcip>1.1.1.1</srcip>
-    <description>sshd: authentication failed from IP 1.1.1.1.</description>
-    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+<group name="modsecurity,sqli,web_attack,">
+
+  <!-- Rule to detect base ModSecurity log -->
+  <rule id="100010" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="transaction.producer.modsecurity">\.+</field>
+    <description>ModSecurity WAF log detected</description>
+    <options>no_full_log</options>
   </rule>
 
-</group>
-<group name="local,sca,compliance,">
-
-  <rule id="100510" level="6">
-    <decoded_as>sca</decoded_as>
-    <field name="data.sca.check.result">failed</field>
-    <description>SCA FAILED: CIS Amazon Linux 2023 misconfiguration detected</description>
-    <group>sca,compliance,critical,</group>
+  <!-- Rule detect SQL Injection via libinjection (ruleId 942100) -->
+  <rule id="100011" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">"ruleId":"942100"</field>
+    <description>ModSecurity: SQL Injection Attack Detected via libinjection</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <options>no_full_log</options>
   </rule>
 
-  <rule id="100511" level="7">
-    <decoded_as>sca</decoded_as>
-    <field name="data.sca.check.result">not applicable</field>
-    <description>SCA: CIS check not applicable (verify manually)</description>
-    <group>sca,compliance,info,</group>
-  </rule>
-</group>
-
-<group name="local,postfix,journald,">
-
-  <rule id="100600" level="8">
-    <decoded_as>postfix</decoded_as>
-    <match>reload -- version</match>
-    <description>Postfix reload detected (postfix/master)</description>
-    <group>mail,postfix,</group>
+  <!-- Rule detect bất kỳ SQL Injection attack nào (generic) -->
+  <rule id="100012" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">attack-sqli</field>
+    <description>ModSecurity: SQL Injection Attack Detected</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <options>no_full_log</options>
   </rule>
 
-</group>
-
-<group name="local,systemd,journald,">
-
-  <rule id="100601" level="9">
-    <decoded_as>systemd</decoded_as>
-    <match>Postfix Mail Transport Agent</match>
-    <description>Postfix Mail Transport Agent reloaded via systemd</description>
-    <group>mail,postfix,systemd,</group>
+  <!-- Rule detect Anomaly Score vượt ngưỡng (ruleId 949110) -->
+  <rule id="100013" level="8">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">"ruleId":"949110"</field>
+    <description>ModSecurity: Inbound Anomaly Score Exceeded - Potential Attack Blocked</description>
+    <options>no_full_log</options>
   </rule>
 
-</group>
-<group name="local,apache,web,">
-
-  <rule id="100610" level="0">
-    <decoded_as>web-accesslog</decoded_as>
-    <field name="data.id">302</field>
-    <field name="data.url">/</field>
-    <description>Apache: HTTP 302 on root path</description>
-    <group>apache,web,accesslog,</group>
+  <!-- Rule detect request bị block (403 response) - ĐÃ MATCH -->
+  <rule id="100014" level="7">
+    <if_sid>100010</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>ModSecurity: Request Blocked with 403 Forbidden</description>
+    <options>no_full_log</options>
   </rule>
 
-</group>
-<group name="local,apache,accesslog,">
-
-  <rule id="100700" level="0">
-    <decoded_as>web-accesslog</decoded_as>
-    <field name="location">/var/log/app/apache/access.log</field>
-    <description>Apache access log event from wazuh-agent-dmz</description>
-    <group>web,apache,accesslog,</group>
+  <!-- Composite rule: SQL Injection + Blocked (HIGH PRIORITY) -->
+  <rule id="100015" level="12">
+    <if_sid>100011</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>ModSecurity: SQL Injection Attack Successfully Blocked from $(transaction.client_ip)</description>
+    <group>authentication_failed,pci_dss_11.4,pci_dss_10.2.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,tsc_CC6.1,tsc_CC6.8,tsc_CC7.2,tsc_CC7.3,</group>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
   </rule>
 
-</group>
-<group name="local,modsecurity,attack,">
-
-  <rule id="100800" level="10">
-    <if_decoded_as>json</if_decoded_as>
-    <field name="data.transaction.producer.modsecurity">\.+</field>
-    <description>ModSecurity Alert: $(data.transaction.messages.message) (Rule: $(data.transaction.messages.details.ruleId)) from $(data.transaction.client_ip)</description>
-    <group>web,modsecurity,attack,</group>
+  <!-- Rule detect repeated SQL Injection attempts từ cùng IP -->
+  <rule id="100016" level="15" frequency="3" timeframe="300">
+    <if_matched_sid>100011</if_matched_sid>
+    <same_field>transaction.client_ip</same_field>
+    <description>ModSecurity: Multiple SQL Injection attempts from same IP: $(transaction.client_ip)</description>
+    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,tsc_CC6.1,tsc_CC7.2,</group>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
   </rule>
 
-  <rule id="100801" level="12">
-    <if_sid>100800</if_sid>
-    <field name="data.transaction.messages.message" type="pcre2">(?i)SQL Injection</field>
-    <description>ModSecurity SQL Injection: $(data.transaction.messages.message) (Rule: $(data.transaction.messages.details.ruleId)) from $(data.transaction.client_ip)</description>
-    <group>web,modsecurity,attack,sqli,pci_dss_6.5.2,gdpr_IV_35.7.d,</group>
+  <!-- Rule detect SQL Injection targeting specific URI -->
+  <rule id="100017" level="11">
+    <if_sid>100011</if_sid>
+    <field name="transaction.request.uri">vulnerabilities</field>
+    <description>ModSecurity: SQL Injection Attack targeting vulnerable endpoint: $(transaction.request.uri)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Rule detect message "SQL Injection Attack Detected via libinjection" -->
+  <rule id="100018" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">SQL Injection Attack Detected via libinjection</field>
+    <description>ModSecurity: libinjection detected SQL Injection pattern</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Rule detect các OWASP CRS SQLi rules khác -->
+  <rule id="100019" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">942\d{3}</field>
+    <description>ModSecurity: OWASP CRS SQL Injection Rule Triggered</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
   </rule>
 
 </group>
