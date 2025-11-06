@@ -27,6 +27,6 @@
 
 <decoder name="modsecurity-audit">
   <prematch>ModSecurity:</prematch>
-  <regex>\[id\s+"(?P<modsec_id>\d+)"\].*\[msg\s+"(?P<modsec_msg>[^"]+)"\]</regex>
-  <order>modsec_id, modsec_msg</order>
+  <regex>\[id\s+&quot;(?P&lt;modsec_audit_id&gt;\d+)&quot;\].*\[msg\s+&quot;(?P&lt;modsec_audit_msg&gt;[^&quot;]+)&quot;\]</regex>
+  <order>modsec_audit_id, modsec_audit_msg</order>
 </decoder>
