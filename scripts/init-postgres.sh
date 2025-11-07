@@ -12,5 +12,5 @@ chmod -R 755 /var/log/postgresql
 
 echo "PostgreSQL log directory initialized with correct permissions"
 
-# Switch to postgres user and start PostgreSQL with the custom config
-exec gosu postgres postgres -c config_file=/etc/postgresql/postgresql.conf
+# Call the original PostgreSQL entrypoint with postgres command and config
+exec docker-entrypoint.sh postgres -c config_file=/etc/postgresql/postgresql.conf
