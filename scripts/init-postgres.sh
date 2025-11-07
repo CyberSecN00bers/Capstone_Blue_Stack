@@ -12,5 +12,5 @@ chmod -R 755 /var/log/postgresql
 
 echo "PostgreSQL log directory initialized with correct permissions"
 
-# Start PostgreSQL with the custom config
-exec postgres -c config_file=/etc/postgresql/postgresql.conf
+# Switch to postgres user and start PostgreSQL with the custom config
+exec gosu postgres postgres -c config_file=/etc/postgresql/postgresql.conf
