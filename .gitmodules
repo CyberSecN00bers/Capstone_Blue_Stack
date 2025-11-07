@@ -1,3 +1,3 @@
 [submodule "nginx-love"]
-	path = web-services/nginx-love
+	path = ./nginx-love
 	url = https://github.com/TinyActive/nginx-love.git
