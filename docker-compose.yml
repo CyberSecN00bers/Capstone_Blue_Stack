@@ -84,7 +84,7 @@ services:
       # - ./logs/nginx/modsec_audit.log:/var/log/modsec_audit.log
       - ./logs/modsecurity:/var/log/modsecurity
       - ./scripts/add-log-dir.sh:/add-log-dir.sh:ro
-
+    entrypoint: /bin/sh -c "sh /add-log-dir.sh && exec /start.sh"
     depends_on:
       postgres-nginx-love:
         condition: service_healthy
@@ -180,7 +180,7 @@ services:
     hostname: wazuh-agent-dmz
     restart: unless-stopped
     environment:
-      - WAZUH_MANAGER=172.16.254.100
+      - WAZUH_MANAGER=wazuh.master
       - WAZUH_AGENT_NAME=wazuh-agent-dmz
       - WAZUH_PASSWORD=SecretPassword
       # Optional: Uncomment if you want to change default ports
@@ -203,6 +203,7 @@ services:
       - backend
       - dvwa
       - juiceshop
+      - wazuh.master
     networks:
       - capstone-network
 
@@ -427,6 +428,4 @@ volumes:
   wazuh-dashboard-custom:
 
 networks:
-  capstone-network:
-    name: capstone-network
-    external: true
+  capstone-network: {}
