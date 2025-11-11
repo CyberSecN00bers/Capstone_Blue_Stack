@@ -2,13 +2,14 @@
 
 This deployment is defined in the `docker-compose.yml` file with two Wazuh manager containers, three Wazuh indexer containers, and one Wazuh dashboard container. It can be deployed by following these steps:
 
-1) Increase max_map_count on your host (Linux). This command must be run with root permissions:
+1) Setup .env
 ```
-sysctl -w vm.max_map_count=262144
+cp .env.example .env
 ```
-2) Create docker network
+2) Setup sub-module nginx-love
 ```
-docker network create capstone-network
+cd Capstone_Blue_Stack
+git submodule update --init --recursive
 ```
 3) Run the certificate creation script:
 ```
