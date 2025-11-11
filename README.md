@@ -8,7 +8,6 @@ cp .env.example .env
 ```
 2) Setup sub-module nginx-love
 ```
-cd Capstone_Blue_Stack
 git submodule update --init --recursive
 ```
 3) Run the certificate creation script:
