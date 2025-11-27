@@ -1,4 +1,9 @@
 # Deploy Wazuh Docker in multi node configuration
+Notes:
+Port of Wazuh-dashboard has changed to:
+```
+IP:444
+```
 
 This deployment is defined in the `docker-compose.yml` file with two Wazuh manager containers, three Wazuh indexer containers, and one Wazuh dashboard container. It can be deployed by following these steps:
 
