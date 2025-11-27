@@ -40,12 +40,7 @@ git clone https://github.com/CyberSecN00bers/Capstone_DMZ.git
 cd Capstone_Web/web-services
 ```
 
-2. **Create Docker network**
-```bash
-docker network create capstone-network
-```
-
-3. **Configure environment variables**
+2. **Configure environment variables**
 ```bash
 # Copy the example environment file
 cp .env.example .env
@@ -60,18 +55,18 @@ cp .env.example .env
 # - VITE_API_URL (update with your server IP)
 ```
 
-4. **Start all services**
+3. **Start all services**
 ```bash
 docker compose up -d
 ```
 
-5. **Access the Nginx WAF Management Portal**
+4. **Access the Nginx WAF Management Portal**
 - Open your browser and navigate to: `http://localhost:8080`
 - Default login credentials:
   - **Username:** `admin`
   - **Password:** `admin123`
 
-6. **Import the configuration backup**
+5. **Import the configuration backup**
 - After logging in to the portal, go to **Settings** → **Import/Export**
 - Click **Import Configuration**
 - Select the file: `nginx-love-config-backup.json`
