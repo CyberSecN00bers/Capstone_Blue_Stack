@@ -47,8 +47,8 @@ Wazuh Agent: Deployed deep in the DMZ to monitor applications and forward logs.
 
 Clone the repository (specifically the wazuh-stack branch) and initialize the WAF submodule.
 
-# Clone the project
-git clone https://github.com/CyberSecN00bers/Capstone_Blue_Stack.git
+# Clone the specific branch
+git clone -b wazuh-stack [https://github.com/CyberSecN00bers/Capstone_Blue_Stack.git](https://github.com/CyberSecN00bers/Capstone_Blue_Stack.git)
 
 # Enter directory
 cd Capstone_Blue_Stack
@@ -64,7 +64,8 @@ Set up your secrets and configuration by copying the example file.
 cp .env.example .env
 
 
-⚠️ Important: You can customize passwords and ports in .env. However, if you change INDEXER_PASSWORD, you must also update the hash in config/wazuh_indexer/internal_users.yml (see Configuration section).
+[!IMPORTANT]
+You can customize passwords and ports in .env. However, if you change INDEXER_PASSWORD, you must also update the hash in config/wazuh_indexer/internal_users.yml (see Configuration section).
 
 4. 🔐 Generate SSL Certificates
 
@@ -89,7 +90,8 @@ Background (Production mode):
 docker compose up -d
 
 
-⏳ Patience Required: The environment takes about 1 minute to fully initialize. The Wazuh Indexer needs time to generate indexes and patterns on the very first run.
+[!NOTE]
+Patience Required: The environment takes about 1 minute to fully initialize. The Wazuh Indexer needs time to generate indexes and patterns on the very first run.
 
 6. 💻 Configure Host Machine
 
