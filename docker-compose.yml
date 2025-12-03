@@ -8,20 +8,24 @@ services:
       - "80:80"
 
     environment:
+      # ModSecurity Engine Control
       - MODSEC_AUDIT_ENGINE=On
       - MODSEC_AUDIT_LOG=/var/log/modsec/modsec_audit.log
       - MODSEC_AUDIT_LOG_FORMAT=JSON
       - TZ=${TZ:-Asia/Ho_Chi_Minh}
+      # CRS Control
       - PARANOIA=1
       - ANOMALY_INBOUND=5
       - ANOMALY_OUTBOUND=4
-      - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template
+      # Template settings
+      - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template 
 
     volumes:
-      # nginx.conf dạng template (image này dùng envsubst)
-      - ./config/nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
-
-      # Logs
+      # 1. Nginx config (dùng template)
+      - ./config/waf/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
+      # 2. ModSecurity Engine config (tên file modsecurity.conf)
+      - ./config/waf/modsecurity.conf:/etc/nginx/modsecurity.conf:ro
+      # 3. Logs
       - ./logs/nginx:/var/log/nginx
       - ./logs/modsecurity:/var/log/modsec
 
