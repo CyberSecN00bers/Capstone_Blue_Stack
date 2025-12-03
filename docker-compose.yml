@@ -14,9 +14,10 @@ services:
         - PARANOIA= 1
         - ANOMALY_INBOUND= 5
         - ANOMALY_OUTBOUND= 4
+
       volumes:
         # Mount file cấu hình nginx custom của chúng ta
-        - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+        - ./config/nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
         
         # Mount logs để Wazuh Agent có thể đọc
         - ./logs/nginx:/var/log/nginx
