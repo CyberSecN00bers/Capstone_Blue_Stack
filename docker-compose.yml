@@ -1,34 +1,34 @@
 services:
   waf:
-      image: owasp/modsecurity-crs:nginx
-      container_name: modsecurity-waf
-      restart: always
-      ports:
-        - "80:80"
-      environment:
-        # Cấu hình hành vi của CRS: https://github.com/coreruleset/modsecurity-crs-docker
-        - MODSEC_AUDIT_ENGINE= On
-        - MODSEC_AUDIT_LOG= /var/log/modsec/modsec_audit.log # log audit
-        - MODSEC_AUDIT_LOG_FORMAT= JSON # Format JSON 
-        - TZ= ${TZ:-Asia/Ho_Chi_Minh}
-        - PARANOIA= 1
-        - ANOMALY_INBOUND= 5
-        - ANOMALY_OUTBOUND= 4
+    image: owasp/modsecurity-crs:nginx
+    container_name: modsecurity-waf
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - MODSEC_AUDIT_ENGINE=On
+      - MODSEC_AUDIT_LOG=/var/log/modsec/modsec_audit.log
+      - MODSEC_AUDIT_LOG_FORMAT=JSON
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
+      - PARANOIA=1
+      - ANOMALY_INBOUND=5
+      - ANOMALY_OUTBOUND=4
+      - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template
 
-      volumes:
-        # Mount file cấu hình nginx custom của chúng ta
-        - ./config/nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
-        
-        # Mount logs để Wazuh Agent có thể đọc
-        - ./logs/nginx:/var/log/nginx
-        - ./logs/modsecurity:/var/log/modsec # Folder này chứa audit log
-      depends_on:
-        - dvwa
-        - juiceshop
-        - wazuh.master
-      networks:
-        - capstone-dmz-network
-        - capstone-siem-network
+    volumes:
+      # Mount file cấu hình vào folder templates (ĐÚNG)
+      - ./config/nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
+      
+      # Mount logs
+      - ./logs/nginx:/var/log/nginx
+      - ./logs/modsecurity:/var/log/modsec
+    depends_on:
+      - dvwa
+      - juiceshop
+      - wazuh.master
+    networks:
+      - capstone-dmz-network
+      - capstone-siem-network
   dvwa:
     image: vulnerables/web-dvwa
     container_name: dvwa
