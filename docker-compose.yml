@@ -100,7 +100,8 @@ services:
         - ./logs/juiceshop:/var/log/app/juiceshop:ro
         # Logs của WAF 
         - ./logs/nginx:/var/log/app/nginx:ro
-        - ./logs/modsecurity:/var/log/app/modsecurity:ro 
+        - ./logs/modsecurity:/var/log/app/modsecurity:ro
+        - wazuh_agent_data:/var/ossec/etc
       depends_on:
         - dvwa
         - juiceshop
