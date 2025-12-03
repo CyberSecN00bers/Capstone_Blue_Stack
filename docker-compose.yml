@@ -23,8 +23,8 @@ services:
     volumes:
       # 1. Nginx config (dùng template)
       - ./config/waf/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
-      # 2. ModSecurity Engine config (tên file modsecurity.conf)
-      - ./config/waf/modsecurity.conf:/etc/nginx/modsecurity.conf:ro
+      # 2. ModSecurity Engine config 
+      - ./config/waf/main.conf:/etc/nginx/main.conf:ro
       # 3. Logs
       - ./logs/nginx:/var/log/nginx
       - ./logs/modsecurity:/var/log/modsec
