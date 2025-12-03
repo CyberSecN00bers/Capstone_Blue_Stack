@@ -33,7 +33,7 @@ services:
     container_name: dvwa
     restart: unless-stopped
     environment:
-      - TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      - TZ= ${TZ:-Asia/Ho_Chi_Minh}
     volumes:
       - ./config/mysql-logging.cnf:/mysql-logging.cnf:ro
       - ./logs/mysql:/var/log/mysql
