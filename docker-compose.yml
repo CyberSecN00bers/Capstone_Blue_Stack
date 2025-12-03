@@ -3,8 +3,10 @@ services:
     image: owasp/modsecurity-crs:nginx
     container_name: modsecurity-waf
     restart: always
+
     ports:
       - "80:80"
+
     environment:
       - MODSEC_AUDIT_ENGINE=On
       - MODSEC_AUDIT_LOG=/var/log/modsec/modsec_audit.log
@@ -16,25 +18,28 @@ services:
       - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template
 
     volumes:
-      # Mount file cấu hình vào folder templates (ĐÚNG)
+      # nginx.conf dạng template (image này dùng envsubst)
       - ./config/nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
-      
-      # Mount logs
+
+      # Logs
       - ./logs/nginx:/var/log/nginx
       - ./logs/modsecurity:/var/log/modsec
+
     depends_on:
       - dvwa
       - juiceshop
       - wazuh.master
+
     networks:
       - capstone-dmz-network
       - capstone-siem-network
+
   dvwa:
     image: vulnerables/web-dvwa
     container_name: dvwa
     restart: unless-stopped
     environment:
-      - TZ= ${TZ:-Asia/Ho_Chi_Minh}
+      - TZ=${TZ:-Asia/Ho_Chi_Minh}
     volumes:
       - ./config/mysql-logging.cnf:/mysql-logging.cnf:ro
       - ./logs/mysql:/var/log/mysql
