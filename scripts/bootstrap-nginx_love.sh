@@ -2,42 +2,27 @@
 set -euo pipefail
 
 # ==============================
-# Configuration (edit these)
+# Configuration
 # ==============================
 
-# Base URL of nginx-love backend API
 API_BASE="${API_BASE:-http://localhost:3001/api}"
 
-# Admin login (set ADMIN_PASSWORD via env or edit here)
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
-# Strong password you want to use for admin AFTER bootstrap (only used if server requires first-login change)
 NEW_ADMIN_PASSWORD="${NEW_ADMIN_PASSWORD:-ChangeMe!123}"
-
-# Optional: TOTP code if 2FA is enabled (leave empty if 2FA is OFF)
 TOTP_CODE="${TOTP_CODE:-}"
 
-# Container names (only change these to auto-pick correct IPs)
 PROXY_CONTAINER="${PROXY_CONTAINER:-blueteam_stack-nginx-1}"
 JUICESHOP_CONTAINER="${JUICESHOP_CONTAINER:-juice-shop}"
 DVWA_CONTAINER="${DVWA_CONTAINER:-dvwa}"
 
-# If PROXY_CONTAINER is not on the same network as an upstream container, auto-connect it (true/false)
 AUTO_CONNECT_NETWORK="${AUTO_CONNECT_NETWORK:-true}"
 
-log() {
-  echo "[*] $*" >&2
-}
+log() { echo "[*] $*" >&2; }
+die() { echo "[!] $*" >&2; exit 1; }
 
-die() {
-  echo "[!] $*" >&2
-  exit 1
-}
-
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
-}
+require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
 
 container_running() {
   local c="$1"
@@ -50,30 +35,23 @@ container_networks() {
 }
 
 find_common_network() {
-  local a="$1"
-  local b="$2"
-  local net
-
+  local a="$1" b="$2" net
   while IFS= read -r net; do
     [[ -z "$net" ]] && continue
     docker inspect -f "{{if index .NetworkSettings.Networks \"$net\"}}yes{{end}}" "$b" 2>/dev/null | grep -q '^yes$' && {
-      echo "$net"
-      return 0
+      echo "$net"; return 0;
     }
   done < <(container_networks "$a")
-
   return 1
 }
 
 container_ip_on_network() {
-  local c="$1"
-  local net="$2"
+  local c="$1" net="$2"
   docker inspect -f "{{(index .NetworkSettings.Networks \"$net\").IPAddress}}" "$c" 2>/dev/null || true
 }
 
 resolve_upstream_ip() {
-  local proxy="$1"
-  local target="$2"
+  local proxy="$1" target="$2"
 
   container_running "$proxy" || die "Proxy container not running or not found: $proxy"
   container_running "$target" || die "Target container not running or not found: $target"
@@ -102,11 +80,13 @@ resolve_upstream_ip() {
 }
 
 build_domain_payload() {
-  local domain_name="$1"
-  local upstream_ip="$2"
-  local upstream_port="$3"
+  local domain_name="$1" upstream_ip="$2" upstream_port="$3"
 
-  jq -n     --arg name "$domain_name"     --arg host "$upstream_ip"     --argjson port "$upstream_port"     '{
+  jq -n \
+    --arg name "$domain_name" \
+    --arg host "$upstream_ip" \
+    --argjson port "$upstream_port" \
+    '{
       name: $name,
       status: "active",
       modsecEnabled: true,
@@ -115,7 +95,7 @@ build_domain_payload() {
           host: $host,
           port: $port,
           protocol: "http",
-          sslVerify: true,
+          sslVerify: false,
           weight: 1,
           maxFails: 3,
           failTimeout: 30
@@ -143,133 +123,128 @@ build_domain_payload() {
     }'
 }
 
-# ==============================
-# 1. First-login password change
-# ==============================
-
-# This function is used only when the backend says "Password change required"
 change_password_first_login() {
-  local user_id="$1"
-  local temp_token="$2"
-  local new_password="$3"
+  local user_id="$1" temp_token="$2" new_password="$3"
 
   log "Changing admin password via FIRST-LOGIN endpoint..."
+  local body resp
+  body=$(jq -n --arg u "$user_id" --arg t "$temp_token" --arg n "$new_password" '{userId: $u, tempToken: $t, newPassword: $n}')
 
-  local body
-  body=$(jq -n     --arg u "$user_id"     --arg t "$temp_token"     --arg n "$new_password"     '{userId: $u, tempToken: $t, newPassword: $n}')
+  resp="$(curl -sS -X POST "$API_BASE/auth/first-login/change-password" \
+    -H "Content-Type: application/json" \
+    -d "$body" || true)"
 
-  local resp
-  resp=$(curl -sS -X POST "$API_BASE/auth/first-login/change-password"     -H "Content-Type: application/json"     -d "$body")
-
-  if ! echo "$resp" | jq . >/dev/null 2>&1; then
+  echo "$resp" | jq . >/dev/null 2>&1 || {
     log "First-login password change response is not valid JSON:"
     echo "$resp"
     return 1
-  fi
+  }
 
   log "First-login password change API called successfully."
+  return 0
 }
 
-# ==============================
-# 2. Login and get JWT token
-#    (auto-handle first-login password change)
-# ==============================
-
+# Returns token on stdout; returns non-zero on failure (does NOT exit)
 login() {
-  local username="$1"
-  local password="$2"
-
+  local username="$1" password="$2"
   log "Logging in as user: $username"
 
-  # Build login request body (with optional TOTP)
-  local login_body
+  local login_body resp require_change token
   if [[ -n "$TOTP_CODE" ]]; then
-    login_body=$(jq -n       --arg u "$username"       --arg p "$password"       --arg t "$TOTP_CODE"       '{username: $u, password: $p, totpCode: $t}')
+    login_body=$(jq -n --arg u "$username" --arg p "$password" --arg t "$TOTP_CODE" '{username:$u,password:$p,totpCode:$t}')
   else
-    login_body=$(jq -n       --arg u "$username"       --arg p "$password"       '{username: $u, password: $p}')
+    login_body=$(jq -n --arg u "$username" --arg p "$password" '{username:$u,password:$p}')
   fi
 
-  local resp
-  resp=$(curl -sS -X POST "$API_BASE/auth/login"     -H "Content-Type: application/json"     -d "$login_body")
+  resp="$(curl -sS -X POST "$API_BASE/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "$login_body" || true)"
 
-  # Check whether the server requires a first-login password change
-  local require_change
-  require_change=$(echo "$resp" | jq -r '.data.requirePasswordChange // "false"' 2>/dev/null || echo "false")
+  require_change="$(echo "$resp" | jq -r '.data.requirePasswordChange // "false"' 2>/dev/null || echo "false")"
 
   if [[ "$require_change" == "true" ]]; then
     log "Server requires first-time password change (requirePasswordChange = true)."
 
     local user_id temp_token
-    user_id=$(echo "$resp" | jq -r '.data.userId // empty')
-    temp_token=$(echo "$resp" | jq -r '.data.tempToken // empty')
+    user_id="$(echo "$resp" | jq -r '.data.userId // empty')"
+    temp_token="$(echo "$resp" | jq -r '.data.tempToken // empty')"
 
     if [[ -z "$user_id" || -z "$temp_token" || "$user_id" == "null" || "$temp_token" == "null" ]]; then
       log "ERROR: requirePasswordChange=true but userId/tempToken are missing."
       log "Raw response:"
       echo "$resp"
-      exit 1
+      return 1
     fi
 
-    # Perform first-login password change to NEW_ADMIN_PASSWORD
-    change_password_first_login "$user_id" "$temp_token" "$NEW_ADMIN_PASSWORD" || exit 1
+    change_password_first_login "$user_id" "$temp_token" "$NEW_ADMIN_PASSWORD" || return 1
 
-    # After changing the password, log in again with the new password
     log "Re-logging in with NEW_ADMIN_PASSWORD after first-login password change..."
+    login_body=$(jq -n --arg u "$username" --arg p "$NEW_ADMIN_PASSWORD" '{username:$u,password:$p}')
 
-    login_body=$(jq -n       --arg u "$username"       --arg p "$NEW_ADMIN_PASSWORD"       '{username: $u, password: $p}')
-
-    resp=$(curl -sS -X POST "$API_BASE/auth/login"       -H "Content-Type: application/json"       -d "$login_body")
+    resp="$(curl -sS -X POST "$API_BASE/auth/login" \
+      -H "Content-Type: application/json" \
+      -d "$login_body" || true)"
   fi
 
-  # At this point, resp should contain accessToken
-  local token
-  token=$(echo "$resp" | jq -r '.data.accessToken // .accessToken // empty' 2>/dev/null || echo "")
-
+  token="$(echo "$resp" | jq -r '.data.accessToken // .accessToken // empty' 2>/dev/null || echo "")"
   if [[ -z "$token" || "$token" == "null" ]]; then
     log "ERROR: Cannot extract access token from login response."
     log "Raw response:"
     echo "$resp"
-    exit 1
+    return 1
   fi
 
   echo "$token"
+  return 0
 }
 
-# ==============================
-# 3. Create a domain from payload
-# ==============================
+login_with_fallback() {
+  local token=""
+  if token="$(login "$ADMIN_USERNAME" "$ADMIN_PASSWORD")"; then
+    echo "$token"; return 0
+  fi
+
+  log "Login failed with ADMIN_PASSWORD. Trying NEW_ADMIN_PASSWORD..."
+  if token="$(login "$ADMIN_USERNAME" "$NEW_ADMIN_PASSWORD")"; then
+    echo "$token"; return 0
+  fi
+
+  die "Login failed with both ADMIN_PASSWORD and NEW_ADMIN_PASSWORD."
+}
 
 create_domain() {
-  local token="$1"
-  local payload="$2"
+  local token="$1" payload="$2"
+  local name resp
 
-  # Try to extract name from payload just for logging
-  local name
   name=$(echo "$payload" | jq -r '.name // "unknown"' 2>/dev/null || echo "unknown")
-
   log "Creating domain '$name' via /domains ..."
 
-  local resp
-  resp=$(curl -sS -X POST "$API_BASE/domains"     -H "Authorization: Bearer $token"     -H "Content-Type: application/json"     -d "$payload")
+  resp="$(curl -sS -X POST "$API_BASE/domains" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "$payload" || true)"
 
-  if ! echo "$resp" | jq . >/dev/null 2>&1; then
+  echo "$resp" | jq . >/dev/null 2>&1 || {
     log "Create domain response is not valid JSON:"
     echo "$resp"
     return 1
-  fi
+  }
 
   log "Domain '$name' created. Response:"
   echo "$resp" | jq .
 }
 
-# ==============================
-# Main flow
-# ==============================
-
 main() {
   require_cmd curl
   require_cmd jq
   require_cmd docker
+
+  # Require passwords from environment (no hardcoded defaults)
+  [[ -n "${ADMIN_PASSWORD:-}" ]] || die "ADMIN_PASSWORD is required (export ADMIN_PASSWORD=... or set it in .env)"
+  if [[ -z "${NEW_ADMIN_PASSWORD:-}" ]]; then
+    # If you do not need first-login password change, reuse ADMIN_PASSWORD
+    NEW_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+  fi
 
   log "=== Step 0: Resolve upstream IPs (from container names) ==="
   local juice_ip dvwa_ip
@@ -282,7 +257,7 @@ main() {
 
   log "=== Step 1: Login & (if required) change admin password ==="
   local token
-  token=$(login "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
+  token="$(login_with_fallback)"
   log "Access token acquired."
 
   log "=== Step 2: Create juiceshop.local ==="
